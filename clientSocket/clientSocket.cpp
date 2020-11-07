@@ -100,15 +100,24 @@ int main(int argc, char const *argv[])
         // Check user has typed
         if (input.size() > 0)
         {
-            int sendResult = send(Socket, input.c_str(), input.size() + 1, 0); // + 1 beacuse string (char arrays) in C++ end with 0
-            if (sendResult != SOCKET_ERROR)
+            // For TCP connections
+            if (type == 1)
             {
-                // Wait for response
-                ZeroMemory(buf, DEFAULT_BUFLEN);
-                int bytesReceived = recv(Socket, buf, DEFAULT_BUFLEN, 0);
-                if (bytesReceived > 0)
+                int sendResult = send(Socket, input.c_str(), input.size() + 1, 0); // + 1 beacuse string (char arrays) in C++ end with 0
+                if (sendResult != SOCKET_ERROR)
                 {
-                    std::cout << "SERVER> " << string(buf, 0, bytesReceived);
+                    // Wait for response
+                    ZeroMemory(buf, DEFAULT_BUFLEN);
+                    int bytesReceived = recv(Socket, buf, DEFAULT_BUFLEN, 0);
+                    if (bytesReceived > 0)
+                    {
+                        std::cout << "SERVER> " << string(buf, 0, bytesReceived);
+                    }
+                }
+            } else {
+                int sendResult = sendto(Socket, input.c_str(), input.size() + 1, 0, (SOCKADDR*)&saServer, sizeof(saServer));
+                if(sendResult == SOCKET_ERROR) {
+                    wprintf(L"Message Not Sent, Error %d", WSAGetLastError());
                 }
             }
         }
