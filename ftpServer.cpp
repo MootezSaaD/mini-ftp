@@ -29,16 +29,14 @@ std::size_t numberOfFilesInDirectory(std::filesystem::path path)
 	return std::distance(directory_iterator(path), directory_iterator{});
 }
 
-vector<string> GetFileList() {
-	vector<string> files;
+string GetFileList() {
+	string files;
 	string currentDir(GetCurrentDirectory());
 	for (const auto& entry : fs::directory_iterator(currentDir)) {
-		files.push_back(entry.path().filename().string());
-		cout << entry.path() << endl;
+		files.append(entry.path().filename().string() + '\n');
 	}
 	return files;
 }
-
 
 vector<string> Split(const char* str, char c = ' ')
 {
@@ -52,7 +50,6 @@ vector<string> Split(const char* str, char c = ' ')
 	} while (0 != *str++);
 	return result;
 }
-
 
 SOCKET SocketStarter(int port) {
 	//----------------------
@@ -135,27 +132,54 @@ SOCKET SocketStarter(int port) {
 	return ClientSocket;
 }
 
+int SendAll(SOCKET client_socket, const void* data, int data_size)
+{
+	const char* data_ptr = (const char*)data;
+	int bytes_sent;
+	while (data_size > 0)
+	{
+		bytes_sent = send(client_socket, data_ptr, data_size, 0);
+		if (bytes_sent == SOCKET_ERROR)
+			return -1;
+		data_ptr += bytes_sent;
+		data_size -= bytes_sent;
+	}
+	wprintf(L"Bytes sent: %d\n", bytes_sent);
+	return 1;
+}
 
-void CommandParser(char *recvbuf, SOCKET ControlClientSocket) {
+void CommandParser(char* recvbuf, SOCKET ControlClientSocket) {
 	vector<string> tokens = Split(recvbuf);
+	// for (auto i = tokens.begin(); i != tokens.end(); ++i)
+	// 	std::cout << *i << ' ';
+	SOCKET DataClientSocket;
+	int iSendResult;
+	if (tokens.at(0) == "ls" && tokens.size() == 1) {
+		string filenames = GetFileList();
+		char* cfilenames = new char[filenames.size() + 1];
+		copy(filenames.begin(), filenames.end(), cfilenames);
+		cfilenames[filenames.size()] = '\0';
 
-	if (tokens.at(1) == "ls" && tokens.size() == 1) {
-		//GetFileList()
-		SOCKET DataClientSocket = SocketStarter(20);
-
+		DataClientSocket = SocketStarter(20);
+		iSendResult = SendAll(DataClientSocket, cfilenames, (int)strlen(cfilenames));
+		if (iSendResult != 1)
+		{
+			wprintf(L"Send failed with error: %d\n", WSAGetLastError());
+			closesocket(DataClientSocket);
+			WSACleanup();
+			exit(0);
+		}
 	}
-	else if (tokens.at(1) == "get" && tokens.size() == 2) {
+	else if (tokens.at(0) == "get" && tokens.size() == 2) {
 		string toDLFile = tokens.at(2);
-		SOCKET DataClientSocket = SocketStarter(20);
-
+		DataClientSocket = SocketStarter(20);
 	}
-	else if (tokens.at(1) == "put" && tokens.size() == 2) {
+	else if (tokens.at(0) == "put" && tokens.size() == 2) {
 		string toUPFile = tokens.at(2);
-		SOCKET DataClientSocket = SocketStarter(20);
-
+		DataClientSocket = SocketStarter(20);
 	}
-	else if (tokens.at(1) == "bye" && tokens.size() == 1) {
-		SOCKET DataClientSocket = SocketStarter(20);
+	else if (tokens.at(0) == "bye" && tokens.size() == 1) {
+		DataClientSocket = SocketStarter(20);
 	}
 	else {
 		cout << "Unsupported command" << endl;
@@ -163,15 +187,15 @@ void CommandParser(char *recvbuf, SOCKET ControlClientSocket) {
 
 	//----------------------
 	// Shutdown the connection since we're done
-	int iResult = shutdown(ControlClientSocket, SD_SEND);
+	int iResult = shutdown(DataClientSocket, SD_SEND);
 	if (iResult == SOCKET_ERROR) {
 		wprintf(L"Client shutdown failed with error: %d\n", WSAGetLastError());
-		closesocket(ControlClientSocket);
+		closesocket(DataClientSocket);
 		WSACleanup();
 		exit(0);
 	}
 	// Cleanup
-	closesocket(ControlClientSocket);
+	closesocket(DataClientSocket);
 	WSACleanup();
 }
 
@@ -190,9 +214,7 @@ int main()
 	}
 	wprintf(L"WSAStartup successful\n");
 
-
 	SOCKET ControlClientSocket = SocketStarter(21);
-
 
 	int recvbuflen = DEFAULT_BUFLEN;
 	char recvbuf[DEFAULT_BUFLEN] = "";
@@ -213,6 +235,7 @@ int main()
 			WSACleanup();
 			return 1;
 		}
+		return 0;
 	} while (iRecvResult > 0);
 	return 0;
 }
