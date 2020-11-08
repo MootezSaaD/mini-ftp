@@ -62,9 +62,6 @@ SOCKET SocketStarter(int port) {
 		WSACleanup();
 		exit(0);
 	}
-	else
-		wprintf(L"Server socket initialized\n");
-
 	//----------------------
 	// Bind IP addr and port to socket
 	// https://docs.microsoft.com/en-us/windows/win32/winsock/sockaddr-2
@@ -123,7 +120,7 @@ SOCKET SocketStarter(int port) {
 
 	// By default, networking is done with byte ordered in big-endian.
 	// ntohs converts TCP/IP network bytes to little-endian (to be processed by CPU).
-	wcout << "Host " << host << " connected on port " << ntohs(client.sin_port) << endl;
+	// wcout << "Host " << host << " connected on port " << ntohs(client.sin_port) << endl;
 
 	//----------------------
 	// Close listening/server socket since we have established a connection
@@ -148,10 +145,24 @@ int SendAll(SOCKET client_socket, const void* data, int data_size)
 	return 1;
 }
 
-void CommandParser(char* recvbuf, SOCKET ControlClientSocket) {
+void SocketHandler(SOCKET Socket, int iSendResult) {
+	if (iSendResult == -1) {
+		closesocket(Socket);
+		WSACleanup();
+	} else {
+		closesocket(Socket);
+	}
+}
+
+enum PARSER_CODES {
+	SHUTDOWN = 400,
+	CONTINUE = 200,
+};
+
+PARSER_CODES CommandParser(char* recvbuf, SOCKET ControlSocket) {
 	vector<string> tokens = Split(recvbuf);
 	// for (auto i = tokens.begin(); i != tokens.end(); ++i)
-	// 	std::cout << *i << ' ';
+	//     std::cout << *i << ' ';
 	SOCKET DataClientSocket;
 	int iSendResult;
 	if (tokens.at(0) == "ls" && tokens.size() == 1) {
@@ -162,41 +173,27 @@ void CommandParser(char* recvbuf, SOCKET ControlClientSocket) {
 
 		DataClientSocket = SocketStarter(20);
 		iSendResult = SendAll(DataClientSocket, cfilenames, (int)strlen(cfilenames));
-		if (iSendResult != 1)
-		{
-			wprintf(L"Send failed with error: %d\n", WSAGetLastError());
-			closesocket(DataClientSocket);
-			WSACleanup();
-			exit(0);
-		}
+		cout << iSendResult << endl;
+		SocketHandler(DataClientSocket, iSendResult);
+		return CONTINUE;
 	}
 	else if (tokens.at(0) == "get" && tokens.size() == 2) {
 		string toDLFile = tokens.at(2);
-		DataClientSocket = SocketStarter(20);
+		return CONTINUE;
 	}
 	else if (tokens.at(0) == "put" && tokens.size() == 2) {
 		string toUPFile = tokens.at(2);
-		DataClientSocket = SocketStarter(20);
+		return CONTINUE;
 	}
 	else if (tokens.at(0) == "bye" && tokens.size() == 1) {
-		DataClientSocket = SocketStarter(20);
+		iSendResult = shutdown(ControlSocket, SD_BOTH);
+		return SHUTDOWN;
 	}
-	else {
-		cout << "Unsupported command" << endl;
-	}
-
-	//----------------------
-	// Shutdown the connection since we're done
-	int iResult = shutdown(DataClientSocket, SD_SEND);
-	if (iResult == SOCKET_ERROR) {
-		wprintf(L"Client shutdown failed with error: %d\n", WSAGetLastError());
-		closesocket(DataClientSocket);
-		WSACleanup();
-		exit(0);
-	}
-	// Cleanup
-	closesocket(DataClientSocket);
-	WSACleanup();
+	char* response = {"Unsupported command"};
+	DataClientSocket = SocketStarter(20);
+	iSendResult = SendAll(DataClientSocket, response, (int)strlen(response));
+	SocketHandler(DataClientSocket, iSendResult);
+	return CONTINUE;
 }
 
 int main()
@@ -214,7 +211,7 @@ int main()
 	}
 	wprintf(L"WSAStartup successful\n");
 
-	SOCKET ControlClientSocket = SocketStarter(21);
+	SOCKET ControlSocket = SocketStarter(21);
 
 	int recvbuflen = DEFAULT_BUFLEN;
 	char recvbuf[DEFAULT_BUFLEN] = "";
@@ -222,20 +219,23 @@ int main()
 
 	// Receive until the peer closes the connection
 	do {
-		iRecvResult = recv(ControlClientSocket, recvbuf, recvbuflen, 0);
+		iRecvResult = recv(ControlSocket, recvbuf, recvbuflen, 0);
 		if (iRecvResult > 0) {
 			wprintf(L"Bytes received: %d\n", iRecvResult);
-			CommandParser(recvbuf, ControlClientSocket);
+			int parserCode = CommandParser(recvbuf, ControlSocket);
+			if (parserCode == SHUTDOWN) {
+				break;
+			}
 		}
 		else if (iRecvResult == 0)
 			wprintf(L"Connection with client closed\n");
 		else {
 			wprintf(L"Recv failed with error: %d\n", WSAGetLastError());
-			closesocket(ControlClientSocket);
+			closesocket(ControlSocket);
 			WSACleanup();
 			return 1;
 		}
-		return 0;
 	} while (iRecvResult > 0);
+	WSACleanup();
 	return 0;
 }
