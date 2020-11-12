@@ -2,62 +2,15 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
-#include <iostream>
-#include <Winsock2.h>
-#include <ws2tcpip.h>
 #include <string>
-#include <fstream>
-#include <filesystem>
+#include <ws2tcpip.h>
+#include "ftpHelper.h"
 
 #pragma comment(lib, "Ws2_32.lib")
 
 #define DEFAULT_BUFLEN 4096
 
-using namespace std;
-namespace fs = filesystem;
-
-string GetCurrentDirectory()
-{
-	char buffer[MAX_PATH];
-	GetModuleFileNameA(NULL, buffer, MAX_PATH);
-	string::size_type pos = string(buffer).find_last_of("\\/");
-	return string(buffer).substr(0, pos);
-}
-
-std::size_t numberOfFilesInDirectory(std::filesystem::path path)
-{
-	using std::filesystem::directory_iterator;
-	return std::distance(directory_iterator(path), directory_iterator{});
-}
-
-string GetFileList() {
-	string files;
-	string currentDir(GetCurrentDirectory());
-	for (const auto& entry : fs::directory_iterator(currentDir)) {
-		files.append(entry.path().filename().string() + '\n');
-	}
-	return files;
-}
-
-vector<string> Tokenizer(const char* str, char c = ' ')
-{
-	vector<string> result;
-	do
-	{
-		const char* begin = str;
-		while (*str != c && *str)
-			str++;
-		result.push_back(string(begin, str));
-	} while (0 != *str++);
-	return result;
-}
-
-char* StrToChar(string str) {
-	char* charArr = new char[str.size() + 1];
-	copy(str.begin(), str.end(), charArr);
-	charArr[str.size()] = '\0';
-	return charArr;
-}
+namespace fs = std::filesystem;
 
 SOCKET SocketStarter(int port) {
 	//----------------------
@@ -128,7 +81,7 @@ SOCKET SocketStarter(int port) {
 
 	// By default, networking is done with byte ordered in big-endian.
 	// ntohs converts TCP/IP network bytes to little-endian (to be processed by CPU).
-	// wcout << "Host " << host << " connected on port " << ntohs(client.sin_port) << endl;
+	// wcout << "Host " << host << " connected on port " << ntohs(client.sin_port) << std::endl;
 
 	//----------------------
 	// Close listening/server socket since we have established a connection
@@ -137,111 +90,61 @@ SOCKET SocketStarter(int port) {
 	return ClientSocket;
 }
 
-int SendAll(SOCKET DataClientSocket, const void* data, int data_size)
-{
-	const char* data_ptr = (const char*)data;
-	int bytes_sent;
-	while (data_size > 0)
-	{
-		bytes_sent = send(DataClientSocket, data_ptr, data_size, 0);
-		if (bytes_sent == SOCKET_ERROR)
-			return -1;
-		data_ptr += bytes_sent;
-		data_size -= bytes_sent;
-	}
-	//wprintf(L"Bytes sent: %d\n", bytes_sent);
-	return 1;
-}
-
-int RecvAndWrite(SOCKET DataClientSocket, char* filename)
-{
-	char buffer[4096];
-	int bytes_read;
-	std::ofstream file(filename, std::ofstream::out|std::ofstream::binary);
-	do
-	{
-		bytes_read = recv(DataClientSocket, buffer, sizeof(buffer), 0);
-		if (bytes_read > 0) {
-			file.write(buffer, bytes_read);
-			// printf("Buffer: %.*s\n", bytes_read, buffer);
-			//or: printf("Buffer: %*.*s\n", bytes_read, bytes_read, buffer);
-		} else if (bytes_read == SOCKET_ERROR) {
-			file.close();
-			return -1;
-		}
-	}
-	while (bytes_read > 0);
-	file.close();
-	return 1;
-}
-
-void SocketHandler(SOCKET Socket, int iResult) {
-	if (iResult == -1) {
-		closesocket(Socket);
-		WSACleanup();
-	} else {
-		closesocket(Socket);
-	}
-}
-
-enum PARSER_CODES {
-	SHUTDOWN = 400,
-	CONTINUE = 200,
-};
-
 PARSER_CODES CommandParser(char* recvbuf, SOCKET ControlSocket) {
-	vector<string> tokens = Tokenizer(recvbuf);
-	cout << "Tokens: ";
+	std::vector<std::string> tokens = Tokenizer(recvbuf, ' ');
+	std::cout << "Tokens: ";
 	for (auto i = tokens.begin(); i != tokens.end(); ++i)
-	    cout << *i << ' ';
-	cout << endl;
-	//cout << "Tokens length: " << tokens.size() << endl;*/
+	    std::cout << *i << ' ';
+	std::cout << std::endl;
+	//std::cout << "Tokens length: " << tokens.size() << std::endl;*/
 	SOCKET DataClientSocket;
 	int iRecvResult, iSendResult;
 	if (tokens.at(0) == "ls" && tokens.size() == 1) {
-		string filenames = GetFileList();
+		std::string filenames = GetFileList();
 		char* cfilenames = StrToChar(filenames);
 
 		DataClientSocket = SocketStarter(20);
 		iSendResult = SendAll(DataClientSocket, cfilenames, (int)strlen(cfilenames));
 		SocketHandler(DataClientSocket, iSendResult);
-		return CONTINUE;
+		return PARSER_CODES::CONTINUE;
 	}
 	else if (tokens.at(0) == "get" && tokens.size() == 2) {
-		string toDLFile = tokens.at(1);
-		return CONTINUE;
+		std::string toSendFile = tokens.at(1);
+
+		
+		return PARSER_CODES::CONTINUE;
 	}
 	else if (tokens.at(0) == "put" && tokens.size() == 2) {
 		DataClientSocket = SocketStarter(20);
 
-		string toRecvPath = tokens.at(1);
-		string toRecvFile;
+		std::string toRecvPath = tokens.at(1);
+		std::string toRecvFile;
 
-		string::size_type pos = toRecvPath.find_last_of("\\/");
+		std::string::size_type pos = toRecvPath.find_last_of("\\/");
 		if (pos != std::string::npos) {
 			// Broken
 			toRecvFile = toRecvPath.substr(pos, toRecvPath.length() - 1);
 		} else {
 			toRecvFile = toRecvPath;
-			cout << "Fetching: " << toRecvFile << "..." << endl;
+			std::cout << "Fetching: " << toRecvFile << "..." << std::endl;
 		}
 		char* ctoRecvFile = StrToChar(toRecvFile);
 
 		iRecvResult = RecvAndWrite(DataClientSocket, ctoRecvFile);
 		SocketHandler(DataClientSocket, iRecvResult);
-		cout << "Done!" << endl;
-		return CONTINUE;
+		std::cout << "Done!" << std::endl;
+		return PARSER_CODES::CONTINUE;
 	}
 	else if ((tokens.at(0) == "bye" || tokens.at(0) == "quit") && tokens.size() == 1) {
 		iSendResult = shutdown(ControlSocket, SD_BOTH);
-		return SHUTDOWN;
+		return PARSER_CODES::SHUTDOWN;
 	}
 	char* response = {"Unsupported command"};
 
 	DataClientSocket = SocketStarter(20);
 	iSendResult = SendAll(DataClientSocket, response, (int)strlen(response));
 	SocketHandler(DataClientSocket, iSendResult);
-	return CONTINUE;
+	return PARSER_CODES::CONTINUE;
 }
 
 int main()
@@ -271,8 +174,8 @@ int main()
 		if (iRecvResult > 0) {
 			//wprintf(L"Bytes received: %d\n", iRecvResult);
 			int parserCode = CommandParser(recvbuf, ControlSocket);
-			//cout << "Parser Code " << parserCode << endl;
-			if (parserCode == SHUTDOWN) {
+			//std::cout << "Parser Code " << parserCode << std::endl;
+			if (parserCode == PARSER_CODES::SHUTDOWN) {
 				break;
 			}
 		}

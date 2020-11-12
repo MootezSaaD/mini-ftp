@@ -2,29 +2,15 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
-#include <iostream>
 #include <string>
-#include <Winsock2.h>
 #include <ws2tcpip.h>
-#include <vector>
-#include <fstream>
+#include "ftpHelper.h"
 
 #pragma comment(lib, "Ws2_32.lib")
 
-using namespace std;
-
 #define DEFAULT_BUFLEN 4096
 
-string serverIP = "127.0.0.1";
-
-void SocketHandler(SOCKET Socket, int iResult) {
-	if (iResult == -1) {
-		closesocket(Socket);
-		WSACleanup();
-	} else {
-		closesocket(Socket);
-	}
-}
+std::string serverIP = "127.0.0.1";
 
 SOCKET SocketStarter(int port) {
     //----------------------
@@ -58,54 +44,6 @@ SOCKET SocketStarter(int port) {
     return Socket;
 }
 
-char* ReadFile(const char* filename) {
-    std::ifstream file(filename, std::ios::binary);
-    char * buffer;
-    if (file) {
-        // get length of file:
-        file.seekg (0, file.end);
-        int length = file.tellg();
-        file.seekg (0, file.beg);
-
-        buffer = new char [length];
-        // read data as a block:
-        file.read (buffer, length);
-        file.close();
-    }
-    return buffer;
-}
-
-int SendAll(SOCKET DataClientSocket, const char* filename)
-{
-    char* data = ReadFile(filename);
-    int data_size = (int)strlen(data);
-	const char* data_ptr = (const char*)data;
-	int bytes_sent;
-	while (data_size > 0)
-	{
-		bytes_sent = send(DataClientSocket, data_ptr, data_size, 0);
-		if (bytes_sent == SOCKET_ERROR)
-			return -1;
-		data_ptr += bytes_sent;
-		data_size -= bytes_sent;
-	}
-	//wprintf(L"Bytes sent: %d\n", bytes_sent);
-	return 1;
-}
-
-vector<string> Tokenizer(const char* str, char c = ' ')
-{
-	vector<string> result;
-	do
-	{
-		const char* begin = str;
-		while (*str != c && *str)
-			str++;
-		result.push_back(string(begin, str));
-	} while (0 != *str++);
-	return result;
-}
-
 int main()
 {
     WSADATA wsaData;
@@ -116,10 +54,10 @@ int main()
     WORD version = MAKEWORD(2, 2);
     int iResult = WSAStartup(version, &wsaData);
     if (iResult != NO_ERROR) {
-        wprintf(L"WSAStartup failed: %ld\n", iResult);
+        std::cout << "WSAStartup failed: " << iResult << std::endl;
         return 1;
     }
-    wprintf(L"WSAStartup successful\n");
+    std::cout << "WSAStartup successful" << std::endl;
 
     // Store server info
     SOCKET ControlSocket = SocketStarter(21);
@@ -127,32 +65,35 @@ int main()
     //----------------------
     // Sending and receiving data
     char buf[DEFAULT_BUFLEN];
-    string input;
+    std::string input;
     do
     {
         SOCKET DataSocket;
         // Ask user for input
         wprintf(L"> ");
-        getline(cin, input); // To retrieve text with spaces
+        getline(std::cin, input); // To retrieve text with spaces
         // Check user has typed
         if (input.size() > 0) {
-            vector<string> tokens = Tokenizer(input.c_str());
+            std::vector<std::string> tokens = Tokenizer(input.c_str(), ' ');
             if (tokens.at(0) == "put" && tokens.size() < 2) {
-                cout << "INVALID COMMAND: put <filename>" << endl;
+                std::cout << "INVALID COMMAND: put <filename>" << std::endl;
                 continue;
             } else if (tokens.at(0) == "get" && tokens.size() < 2) {
-                cout << "INVALID COMMAND: get <filename>" << endl;
+                std::cout << "INVALID COMMAND: get <filename>" << std::endl;
                 continue;
             }
 
-            int sendResult = send(ControlSocket, input.c_str(), input.size() + 1, 0); // + 1 beacuse string (char arrays) in C++ end with 0
+            int sendResult = send(ControlSocket, input.c_str(), input.size() + 1, 0); // + 1 beacuse std::string (char arrays) in C++ end with 0
             if (sendResult == SOCKET_ERROR || input == "bye" || input == "quit")
                 break;
 
             if (tokens.at(0) == "put" && tokens.size() == 2) {
                 const char* filename = tokens.at(1).c_str();
                 DataSocket = SocketStarter(20);
-                int iSendResult = SendAll(DataSocket, filename);
+
+                char* data = ReadFile(filename);
+                int data_size = (int)strlen(data);
+                int iSendResult = SendAll(DataSocket, data, data_size);
                 SocketHandler(DataSocket, iSendResult);
             }
             else {
@@ -162,7 +103,7 @@ int main()
                 int bytesReceived = recv(DataSocket, buf, DEFAULT_BUFLEN, 0);
                 if (bytesReceived > 0)
                 {
-                    std::cout << string(buf, 0, bytesReceived);
+                    std::cout << std::string(buf, 0, bytesReceived);
                     wprintf(L"\n");
                 }
             }
