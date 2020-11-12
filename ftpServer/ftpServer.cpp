@@ -6,6 +6,7 @@
 #include <Winsock2.h>
 #include <ws2tcpip.h>
 #include <string>
+#include <fstream>
 #include <filesystem>
 
 #pragma comment(lib, "Ws2_32.lib")
@@ -38,7 +39,7 @@ string GetFileList() {
 	return files;
 }
 
-vector<string> Split(const char* str, char c = ' ')
+vector<string> Tokenizer(const char* str, char c = ' ')
 {
 	vector<string> result;
 	do
@@ -49,6 +50,13 @@ vector<string> Split(const char* str, char c = ' ')
 		result.push_back(string(begin, str));
 	} while (0 != *str++);
 	return result;
+}
+
+char* StrToChar(string str) {
+	char* charArr = new char[str.size() + 1];
+	copy(str.begin(), str.end(), charArr);
+	charArr[str.size()] = '\0';
+	return charArr;
 }
 
 SOCKET SocketStarter(int port) {
@@ -129,24 +137,46 @@ SOCKET SocketStarter(int port) {
 	return ClientSocket;
 }
 
-int SendAll(SOCKET client_socket, const void* data, int data_size)
+int SendAll(SOCKET DataClientSocket, const void* data, int data_size)
 {
 	const char* data_ptr = (const char*)data;
 	int bytes_sent;
 	while (data_size > 0)
 	{
-		bytes_sent = send(client_socket, data_ptr, data_size, 0);
+		bytes_sent = send(DataClientSocket, data_ptr, data_size, 0);
 		if (bytes_sent == SOCKET_ERROR)
 			return -1;
 		data_ptr += bytes_sent;
 		data_size -= bytes_sent;
 	}
-	wprintf(L"Bytes sent: %d\n", bytes_sent);
+	//wprintf(L"Bytes sent: %d\n", bytes_sent);
 	return 1;
 }
 
-void SocketHandler(SOCKET Socket, int iSendResult) {
-	if (iSendResult == -1) {
+int RecvAndWrite(SOCKET DataClientSocket, char* filename)
+{
+	char buffer[4096];
+	int bytes_read;
+	std::ofstream file(filename, std::ofstream::out|std::ofstream::binary);
+	do
+	{
+		bytes_read = recv(DataClientSocket, buffer, sizeof(buffer), 0);
+		if (bytes_read > 0) {
+			file.write(buffer, bytes_read);
+			// printf("Buffer: %.*s\n", bytes_read, buffer);
+			//or: printf("Buffer: %*.*s\n", bytes_read, bytes_read, buffer);
+		} else if (bytes_read == SOCKET_ERROR) {
+			file.close();
+			return -1;
+		}
+	}
+	while (bytes_read > 0);
+	file.close();
+	return 1;
+}
+
+void SocketHandler(SOCKET Socket, int iResult) {
+	if (iResult == -1) {
 		closesocket(Socket);
 		WSACleanup();
 	} else {
@@ -160,36 +190,54 @@ enum PARSER_CODES {
 };
 
 PARSER_CODES CommandParser(char* recvbuf, SOCKET ControlSocket) {
-	vector<string> tokens = Split(recvbuf);
-	// for (auto i = tokens.begin(); i != tokens.end(); ++i)
-	//     std::cout << *i << ' ';
+	vector<string> tokens = Tokenizer(recvbuf);
+	cout << "Tokens: ";
+	for (auto i = tokens.begin(); i != tokens.end(); ++i)
+	    cout << *i << ' ';
+	cout << endl;
+	//cout << "Tokens length: " << tokens.size() << endl;*/
 	SOCKET DataClientSocket;
-	int iSendResult;
+	int iRecvResult, iSendResult;
 	if (tokens.at(0) == "ls" && tokens.size() == 1) {
 		string filenames = GetFileList();
-		char* cfilenames = new char[filenames.size() + 1];
-		copy(filenames.begin(), filenames.end(), cfilenames);
-		cfilenames[filenames.size()] = '\0';
+		char* cfilenames = StrToChar(filenames);
 
 		DataClientSocket = SocketStarter(20);
 		iSendResult = SendAll(DataClientSocket, cfilenames, (int)strlen(cfilenames));
-		cout << iSendResult << endl;
 		SocketHandler(DataClientSocket, iSendResult);
 		return CONTINUE;
 	}
 	else if (tokens.at(0) == "get" && tokens.size() == 2) {
-		string toDLFile = tokens.at(2);
+		string toDLFile = tokens.at(1);
 		return CONTINUE;
 	}
 	else if (tokens.at(0) == "put" && tokens.size() == 2) {
-		string toUPFile = tokens.at(2);
+		DataClientSocket = SocketStarter(20);
+
+		string toRecvPath = tokens.at(1);
+		string toRecvFile;
+
+		string::size_type pos = toRecvPath.find_last_of("\\/");
+		if (pos != std::string::npos) {
+			// Broken
+			toRecvFile = toRecvPath.substr(pos, toRecvPath.length() - 1);
+		} else {
+			toRecvFile = toRecvPath;
+			cout << "Fetching: " << toRecvFile << "..." << endl;
+		}
+		char* ctoRecvFile = StrToChar(toRecvFile);
+
+		iRecvResult = RecvAndWrite(DataClientSocket, ctoRecvFile);
+		SocketHandler(DataClientSocket, iRecvResult);
+		cout << "Done!" << endl;
 		return CONTINUE;
 	}
-	else if (tokens.at(0) == "bye" && tokens.size() == 1) {
+	else if ((tokens.at(0) == "bye" || tokens.at(0) == "quit") && tokens.size() == 1) {
 		iSendResult = shutdown(ControlSocket, SD_BOTH);
 		return SHUTDOWN;
 	}
 	char* response = {"Unsupported command"};
+
 	DataClientSocket = SocketStarter(20);
 	iSendResult = SendAll(DataClientSocket, response, (int)strlen(response));
 	SocketHandler(DataClientSocket, iSendResult);
@@ -221,8 +269,9 @@ int main()
 	do {
 		iRecvResult = recv(ControlSocket, recvbuf, recvbuflen, 0);
 		if (iRecvResult > 0) {
-			wprintf(L"Bytes received: %d\n", iRecvResult);
+			//wprintf(L"Bytes received: %d\n", iRecvResult);
 			int parserCode = CommandParser(recvbuf, ControlSocket);
+			//cout << "Parser Code " << parserCode << endl;
 			if (parserCode == SHUTDOWN) {
 				break;
 			}
