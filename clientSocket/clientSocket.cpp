@@ -18,7 +18,7 @@ int main(int argc, char const *argv[])
     // Check if socket type,server IP and port are provided
     if (argc < 4)
     {
-        wprintf(L"Usage: clientSocket <TYPE: 1: TCP | 2: UDP> <IP-ADDR> <PORT>\n");
+        wprintf(L"Usage: clientSocket <IP-ADDR> <TYPE: 1: TCP | 2: UDP> <PORT>\n");
         return 0;
     }
     // Store server info
@@ -49,7 +49,7 @@ int main(int argc, char const *argv[])
     wprintf(L"WSAStartup successful\n");
 
     //----------------------
-    // Create a socket (TCP for now)
+    // Create a socket
     // https://docs.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-socket
     SOCKET Socket;
     Socket = socket(AF_INET, type, 0);
