@@ -96,6 +96,12 @@ int main()
                 int iSendResult = SendAll(DataSocket, data, data_size);
                 SocketHandler(DataSocket, iSendResult);
             }
+            if(tokens.at(0) == "get" && tokens.size() == 2) {
+                DataSocket = SocketStarter(20);
+                char* filename = StrToChar(tokens.at(1));
+                int iRecvResult = RecvAndWrite(DataSocket, filename);
+                SocketHandler(DataSocket, iRecvResult);
+            }
             else {
                 ZeroMemory(buf, DEFAULT_BUFLEN);
                 DataSocket = SocketStarter(20);

@@ -109,9 +109,22 @@ PARSER_CODES CommandParser(char* recvbuf, SOCKET ControlSocket) {
 		return PARSER_CODES::CONTINUE;
 	}
 	else if (tokens.at(0) == "get" && tokens.size() == 2) {
-		std::string toSendFile = tokens.at(1);
 
-		
+		DataClientSocket = SocketStarter(20);
+
+		std::string toSendFile = tokens.at(1);
+		char* fileTobeSent = ReadFile(toSendFile.c_str());
+		int data_size = (int) strlen(fileTobeSent);
+		// If ( fileTobeSent == empty ) => file does not exist
+		if(fileTobeSent[0] == '\0' || fileTobeSent == NULL) {
+			char* message = StrToChar("File Does Not Exist!");
+			iSendResult = SendAll(DataClientSocket, message, (int)strlen(message) );
+			SocketHandler(DataClientSocket, iSendResult);
+		} else {
+			std::cout << "Sending: "<< toSendFile << std::endl;
+			iSendResult = SendAll(DataClientSocket, fileTobeSent, data_size);
+			SocketHandler(DataClientSocket, iSendResult);
+		}
 		return PARSER_CODES::CONTINUE;
 	}
 	else if (tokens.at(0) == "put" && tokens.size() == 2) {
