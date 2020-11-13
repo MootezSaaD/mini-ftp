@@ -62,11 +62,9 @@ int main(int argc, char const *argv[])
     else
         wprintf(L"Server socket initialized\n");
 
-    //----------------------
-    // Bind IP addr and port to socket
-    // https://docs.microsoft.com/en-us/windows/win32/winsock/sockaddr-2
-    struct sockaddr_in saServer;
+    
     // Fill in socketaddr_in structure (IPv4)
+    struct sockaddr_in saServer;
     saServer.sin_family = AF_INET;
     saServer.sin_port = htons(port);                          // htons: host to network short
     inet_pton(AF_INET, serverIP.c_str(), &saServer.sin_addr); // Converts the IPv4 address in its text representation
