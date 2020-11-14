@@ -12,14 +12,14 @@
 
 namespace fs = std::filesystem;
 
-SOCKET SocketStarter(int port)
+SOCKET ServerSocketStart(int port)
 {
 	//----------------------
 	// Create a socket
 	// https://docs.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-socket
-	SOCKET ListenSocket;
-	ListenSocket = socket(AF_INET, SOCK_STREAM, 0);
-	if (ListenSocket == INVALID_SOCKET)
+	SOCKET Socket;
+	Socket = socket(AF_INET, SOCK_STREAM, 0);
+	if (Socket == INVALID_SOCKET)
 	{
 		wprintf(L"Socket failed with error: %d\n", WSAGetLastError());
 		WSACleanup();
@@ -34,11 +34,11 @@ SOCKET SocketStarter(int port)
 	saServer.sin_addr.S_un.S_addr = INADDR_ANY;
 	saServer.sin_port = htons(port); // htons: host to network short
 
-	if (bind(ListenSocket,
+	if (bind(Socket,
 			 (SOCKADDR *)&saServer, sizeof(saServer)) == SOCKET_ERROR)
 	{
 		wprintf(L"Bind failed with error: %d\n", WSAGetLastError());
-		closesocket(ListenSocket);
+		closesocket(Socket);
 		WSACleanup();
 		exit(0);
 	}
@@ -47,10 +47,10 @@ SOCKET SocketStarter(int port)
 	// Listen for incoming connection requests.
 	// on the created socket
 	// SOMAXCONN: value for maximum background connections allowed
-	if (listen(ListenSocket, SOMAXCONN) == SOCKET_ERROR)
+	if (listen(Socket, SOMAXCONN) == SOCKET_ERROR)
 	{
 		wprintf(L"Listen failed with error: %d\n", WSAGetLastError());
-		closesocket(ListenSocket);
+		closesocket(Socket);
 		WSACleanup();
 		exit(0);
 	}
@@ -62,11 +62,11 @@ SOCKET SocketStarter(int port)
 
 	// Create a SOCKET for accepting incoming requests.
 	SOCKET ClientSocket;
-	ClientSocket = accept(ListenSocket, (sockaddr *)&client, &clientSize);
+	ClientSocket = accept(Socket, (sockaddr *)&client, &clientSize);
 	if (ClientSocket == INVALID_SOCKET)
 	{
 		wprintf(L"Accept failed with error: %d\n", WSAGetLastError());
-		closesocket(ListenSocket);
+		closesocket(Socket);
 		WSACleanup();
 		exit(0);
 	}
@@ -91,7 +91,7 @@ SOCKET SocketStarter(int port)
 	//----------------------
 	// Close listening/server socket since we have established a connection
 	// with a client socket.
-	closesocket(ListenSocket);
+	closesocket(Socket);
 	return ClientSocket;
 }
 
@@ -110,7 +110,7 @@ PARSER_CODES CommandParser(char *recvbuf, SOCKET ControlSocket)
 		std::string filenames = GetFileList();
 		char *cfilenames = StrToChar(filenames);
 
-		DataClientSocket = SocketStarter(20);
+		DataClientSocket = ServerSocketStart(20);
 		iSendResult = SendAll(DataClientSocket, cfilenames, (int)strlen(cfilenames));
 		SocketHandler(DataClientSocket, iSendResult);
 		return PARSER_CODES::CONTINUE;
@@ -120,7 +120,7 @@ PARSER_CODES CommandParser(char *recvbuf, SOCKET ControlSocket)
 		std::string toSendFile = tokens.at(1);
 		char *fileToBeSent = ReadFile(toSendFile.c_str());
 
-		DataClientSocket = SocketStarter(20);
+		DataClientSocket = ServerSocketStart(20);
 		// If ( fileTobeSent == empty ) => file does not exist
 		if (fileToBeSent[0] == '\0' || fileToBeSent == NULL)
 		{
@@ -139,7 +139,7 @@ PARSER_CODES CommandParser(char *recvbuf, SOCKET ControlSocket)
 	}
 	else if (tokens.at(0) == "put" && tokens.size() == 2)
 	{
-		DataClientSocket = SocketStarter(20);
+		DataClientSocket = ServerSocketStart(20);
 
 		std::string toRecvPath = tokens.at(1);
 		std::string toRecvFile;
@@ -172,7 +172,7 @@ PARSER_CODES CommandParser(char *recvbuf, SOCKET ControlSocket)
 	}
 	char *response = {"Unsupported command"};
 
-	DataClientSocket = SocketStarter(20);
+	DataClientSocket = ServerSocketStart(20);
 	iSendResult = SendAll(DataClientSocket, response, (int)strlen(response));
 	SocketHandler(DataClientSocket, iSendResult);
 	return PARSER_CODES::CONTINUE;
@@ -194,7 +194,7 @@ int main()
 	}
 	wprintf(L"WSAStartup successful\n");
 
-	SOCKET ControlSocket = SocketStarter(21);
+	SOCKET ControlSocket = ServerSocketStart(21);
 
 	int recvbuflen = DEFAULT_BUFLEN;
 	char recvbuf[DEFAULT_BUFLEN] = "";

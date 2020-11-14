@@ -12,7 +12,7 @@
 
 std::string serverIP = "127.0.0.1";
 
-SOCKET SocketStarter(int port)
+SOCKET ClientSocketStart(int port)
 {
     //----------------------
     // Create a socket (TCP for now)
@@ -64,7 +64,7 @@ int main()
     std::cout << "WSAStartup successful" << std::endl;
 
     // Store server info
-    SOCKET ControlSocket = SocketStarter(21);
+    SOCKET ControlSocket = ClientSocketStart(21);
 
     //----------------------
     // Sending and receiving data
@@ -105,7 +105,7 @@ int main()
             if (tokens.at(0) == "put" && tokens.size() == 2)
             {
                 const char *filename = tokens.at(1).c_str();
-                DataSocket = SocketStarter(20);
+                DataSocket = ClientSocketStart(20);
 
                 char *data = ReadFile(filename);
                 int data_size = (int)strlen(data);
@@ -115,7 +115,7 @@ int main()
             else if (tokens.at(0) == "get" && tokens.size() == 2)
             {
                 ZeroMemory(buffer, sizeof(buffer));
-                DataSocket = SocketStarter(20);
+                DataSocket = ClientSocketStart(20);
                 char *filename = StrToChar(tokens.at(1));
                 iResult = RecvAndWrite(DataSocket, filename, buffer, sizeof(buffer));
                 SocketHandler(DataSocket, iResult);
@@ -123,7 +123,7 @@ int main()
             else
             {
                 ZeroMemory(buffer, sizeof(buffer));
-                DataSocket = SocketStarter(20);
+                DataSocket = ClientSocketStart(20);
                 // Wait for response
                 bytesRecv = RecvAll(DataSocket, buffer, sizeof(buffer));
                 std::cout << buffer << std::endl;
