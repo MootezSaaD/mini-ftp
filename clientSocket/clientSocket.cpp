@@ -62,7 +62,6 @@ int main(int argc, char const *argv[])
     else
         wprintf(L"Server socket initialized\n");
 
-    
     // Fill in socketaddr_in structure (IPv4)
     struct sockaddr_in saServer;
     saServer.sin_family = AF_INET;
@@ -112,14 +111,19 @@ int main(int argc, char const *argv[])
                         std::cout << "SERVER> " << string(buf, 0, bytesReceived);
                     }
                 }
-            } else {
-                int sendResult = sendto(Socket, input.c_str(), input.size() + 1, 0, (SOCKADDR*)&saServer, sizeof(saServer));
-                if(sendResult == SOCKET_ERROR) {
+            }
+            else
+            {
+                int sendResult = sendto(Socket, input.c_str(), input.size() + 1, 0, (SOCKADDR *)&saServer, sizeof(saServer));
+                if (sendResult == SOCKET_ERROR)
+                {
                     wprintf(L"Message Not Sent, Error %d", WSAGetLastError());
-                } else {
+                }
+                else
+                {
                     ZeroMemory(buf, DEFAULT_BUFLEN);
                     int serverLength = sizeof(saServer);
-                    int bytesReceived = recvfrom(Socket, buf, DEFAULT_BUFLEN, 0, (SOCKADDR*)&saServer, &serverLength);
+                    int bytesReceived = recvfrom(Socket, buf, DEFAULT_BUFLEN, 0, (SOCKADDR *)&saServer, &serverLength);
                     if (bytesReceived > 0)
                     {
                         std::cout << "SERVER> " << string(buf, 0, bytesReceived);
