@@ -38,8 +38,6 @@ void setSocketTimeout(SOCKET ListenSocket, int timeout)
 		WSACleanup();
 		exit(0);
 	}
-	else
-		std::cout << "Set SO_RCVTIMEO Value: " << timeout << std::endl;
 
 	iResult = setsockopt(ListenSocket, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout));
 	if (iResult == SOCKET_ERROR)
@@ -49,8 +47,6 @@ void setSocketTimeout(SOCKET ListenSocket, int timeout)
 		WSACleanup();
 		exit(0);
 	}
-	else
-		std::cout << "Set SO_SNDTIMEO Value: " << timeout << std::endl;
 }
 
 SOCKET ServerSocketStart(int port, int timeout = 10000)
@@ -130,7 +126,7 @@ SOCKET ServerSocketStart(int port, int timeout = 10000)
 
 	// By default, networking is done with byte ordered in big-endian.
 	// ntohs converts TCP/IP network bytes to little-endian (to be processed by CPU).
-	std::cout << "Host " << host << " connected on port " << ntohs(client.sin_port) << std::endl;
+	std::wcout << "Host " << host << " connected on port " << ntohs(client.sin_port) << std::endl;
 
 	//----------------------
 	// Close listening/server socket since we have established a connection

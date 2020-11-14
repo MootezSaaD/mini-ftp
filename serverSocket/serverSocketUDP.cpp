@@ -75,9 +75,8 @@ int main()
 
 		// Convert from byte array to chars
 		InetNtopW(AF_INET, &client.sin_addr, clientIP, DEFAULT_BUFLEN);
-
 		// Display received data, including the sender's IP
-		wprintf(L"[%ls] Said > %hs", clientIP, recvbuf);
+		std::wcout << "[" << clientIP << "]" << " said: " << recvbuf << std::endl; 
 		// Echo Back to The Client
 		int iResult = sendto(Socket, recvbuf, DEFAULT_BUFLEN, 0, (SOCKADDR *)&client, sizeof(client));
 		if (iResult == SOCKET_ERROR)

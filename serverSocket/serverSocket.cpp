@@ -123,6 +123,7 @@ int main()
 		if (iRecvResult > 0)
 		{
 			wprintf(L"Bytes received: %d\n", iRecvResult);
+			std::cout << "Message received: " << recvbuf << std::endl;
 			// Echo the buffer back to the sender
 			iSendResult = send(ClientSocket, recvbuf, iRecvResult, 0);
 			if (iSendResult == SOCKET_ERROR)
