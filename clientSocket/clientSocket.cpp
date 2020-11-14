@@ -120,6 +120,7 @@ int main(int argc, char const *argv[])
                     ZeroMemory(buf, DEFAULT_BUFLEN);
                     int serverLength = sizeof(saServer);
                     int bytesReceived = recvfrom(Socket, buf, DEFAULT_BUFLEN, 0, (SOCKADDR*)&saServer, &serverLength);
+                    if (bytesReceived > 0)
                     {
                         std::cout << "SERVER> " << string(buf, 0, bytesReceived);
                     }
