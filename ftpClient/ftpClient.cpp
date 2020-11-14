@@ -10,7 +10,7 @@
 
 #define DEFAULT_BUFLEN 4096
 
-std::string serverIP = "127.0.0.1";
+std::string serverIP;
 
 SOCKET ClientSocketStart(int port)
 {
@@ -47,8 +47,9 @@ SOCKET ClientSocketStart(int port)
     return Socket;
 }
 
-int main()
+int main(int argc, char const *argv[])
 {
+    serverIP = argv[1];
     WSADATA wsaData;
     //----------------------
     // Initialize winsock
