@@ -117,7 +117,7 @@ int main(int argc, char const *argv[])
                 int sendResult = sendto(Socket, input.c_str(), input.size() + 1, 0, (SOCKADDR *)&saServer, sizeof(saServer));
                 if (sendResult == SOCKET_ERROR)
                 {
-                    wprintf(L"Message Not Sent, Error %d", WSAGetLastError());
+                    wprintf(L"Message not sent, Error %d", WSAGetLastError());
                 }
                 else
                 {

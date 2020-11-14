@@ -102,7 +102,6 @@ int SendAll(SOCKET Socket, const void *data, int data_size)
 		data_ptr += bytes_sent;
 		data_size -= bytes_sent;
 	}
-	//wprintf(L"Bytes sent: %d\n", bytes_sent);
 	return 1;
 }
 

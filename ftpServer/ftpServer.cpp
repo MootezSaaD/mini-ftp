@@ -12,7 +12,48 @@
 
 namespace fs = std::filesystem;
 
-SOCKET ServerSocketStart(int port)
+std::string GetErrorMessage()
+{
+	std::string errorMessage = "";
+	switch (WSAGetLastError())
+	{
+	case 10060:
+		errorMessage = "Socket connection timed out";
+		break;
+	default:
+		errorMessage = "Recv failed with error: " + WSAGetLastError();
+	}
+	return errorMessage;
+}
+
+void setSocketTimeout(SOCKET ListenSocket, int timeout)
+{
+	int iResult;
+
+	iResult = setsockopt(ListenSocket, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
+	if (iResult == SOCKET_ERROR)
+	{
+		std::cout << "setsockopt for SO_RCVTIMEO failed with error: " << WSAGetLastError() << std::endl;
+		closesocket(ListenSocket);
+		WSACleanup();
+		exit(0);
+	}
+	else
+		std::cout << "Set SO_RCVTIMEO Value: " << timeout << std::endl;
+
+	iResult = setsockopt(ListenSocket, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout));
+	if (iResult == SOCKET_ERROR)
+	{
+		std::cout << "setsockopt for SO_SNDTIMEO failed with error: " << WSAGetLastError() << std::endl;
+		closesocket(ListenSocket);
+		WSACleanup();
+		exit(0);
+	}
+	else
+		std::cout << "Set SO_SNDTIMEO Value: " << timeout << std::endl;
+}
+
+SOCKET ServerSocketStart(int port, int timeout = 10000)
 {
 	//----------------------
 	// Create a socket
@@ -21,7 +62,7 @@ SOCKET ServerSocketStart(int port)
 	Socket = socket(AF_INET, SOCK_STREAM, 0);
 	if (Socket == INVALID_SOCKET)
 	{
-		wprintf(L"Socket failed with error: %d\n", WSAGetLastError());
+		std::cout << "Socket failed with error: " << WSAGetLastError() << std::endl;
 		WSACleanup();
 		exit(0);
 	}
@@ -37,11 +78,14 @@ SOCKET ServerSocketStart(int port)
 	if (bind(Socket,
 			 (SOCKADDR *)&saServer, sizeof(saServer)) == SOCKET_ERROR)
 	{
-		wprintf(L"Bind failed with error: %d\n", WSAGetLastError());
+		std::cout << "Bind failed with error: " <<  WSAGetLastError() << std::endl;
 		closesocket(Socket);
 		WSACleanup();
 		exit(0);
 	}
+
+	if (timeout > 0)
+		setSocketTimeout(Socket, timeout);
 
 	//----------------------
 	// Listen for incoming connection requests.
@@ -49,7 +93,7 @@ SOCKET ServerSocketStart(int port)
 	// SOMAXCONN: value for maximum background connections allowed
 	if (listen(Socket, SOMAXCONN) == SOCKET_ERROR)
 	{
-		wprintf(L"Listen failed with error: %d\n", WSAGetLastError());
+		std::cout << "Listen failed with error: " << WSAGetLastError() << std::endl;
 		closesocket(Socket);
 		WSACleanup();
 		exit(0);
@@ -65,13 +109,13 @@ SOCKET ServerSocketStart(int port)
 	ClientSocket = accept(Socket, (sockaddr *)&client, &clientSize);
 	if (ClientSocket == INVALID_SOCKET)
 	{
-		wprintf(L"Accept failed with error: %d\n", WSAGetLastError());
+		std::cout << "Accept failed with error: " << WSAGetLastError() << std::endl;
 		closesocket(Socket);
 		WSACleanup();
 		exit(0);
 	}
 	else
-		wprintf(L"Client socket initialized\n");
+		std::cout << "Client socket initialized" << std::endl;
 
 	// Get data from socket
 	WCHAR host[NI_MAXHOST];	   // client's remote name
@@ -86,7 +130,7 @@ SOCKET ServerSocketStart(int port)
 
 	// By default, networking is done with byte ordered in big-endian.
 	// ntohs converts TCP/IP network bytes to little-endian (to be processed by CPU).
-	// wcout << "Host " << host << " connected on port " << ntohs(client.sin_port) << std::endl;
+	std::cout << "Host " << host << " connected on port " << ntohs(client.sin_port) << std::endl;
 
 	//----------------------
 	// Close listening/server socket since we have established a connection
@@ -189,12 +233,12 @@ int main()
 	int iResult = WSAStartup(version, &wsaData);
 	if (iResult != NO_ERROR)
 	{
-		wprintf(L"WSAStartup failed: %ld\n", iResult);
+		std::cout << "WSAStartup failed: " << iResult << std::endl;
 		return 1;
 	}
-	wprintf(L"WSAStartup successful\n");
+	std::cout << "WSAStartup successful" << std::endl;
 
-	SOCKET ControlSocket = ServerSocketStart(21);
+	SOCKET ControlSocket = ServerSocketStart(21, 0);
 
 	int recvbuflen = DEFAULT_BUFLEN;
 	char recvbuf[DEFAULT_BUFLEN] = "";
@@ -206,7 +250,7 @@ int main()
 		iRecvResult = recv(ControlSocket, recvbuf, recvbuflen, 0);
 		if (iRecvResult > 0)
 		{
-			//wprintf(L"Bytes received: %d\n", iRecvResult);
+			//std::cout << "Bytes received: " << iRecvResult << std::endl;
 			int parserCode = CommandParser(recvbuf, ControlSocket);
 			//std::cout << "Parser Code " << parserCode << std::endl;
 			if (parserCode == PARSER_CODES::SHUTDOWN)
@@ -215,15 +259,25 @@ int main()
 			}
 		}
 		else if (iRecvResult == 0)
-			wprintf(L"Connection with client closed\n");
+			std::cout << "Connection with client closed" << std::endl;
 		else
 		{
-			wprintf(L"Recv failed with error: %d\n", WSAGetLastError());
-			closesocket(ControlSocket);
-			WSACleanup();
-			return 1;
+			std::cout << GetErrorMessage() << std::endl;
+			break;
 		}
 	} while (iRecvResult > 0);
+
+	//----------------------
+	// Shutdown the connection since we're done
+	iResult = shutdown(ControlSocket, SD_BOTH);
+	if (iResult == SOCKET_ERROR)
+	{
+		std::cout << "Socket shutdown failed with error: " << WSAGetLastError() << std::endl;
+		closesocket(ControlSocket);
+		WSACleanup();
+		return 1;
+	}
+	closesocket(ControlSocket);
 	WSACleanup();
 	return 0;
 }

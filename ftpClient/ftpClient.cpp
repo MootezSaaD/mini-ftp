@@ -21,7 +21,7 @@ SOCKET ClientSocketStart(int port)
     Socket = socket(AF_INET, SOCK_STREAM, 0);
     if (Socket == INVALID_SOCKET)
     {
-        wprintf(L"Socket failed with error: %d\n", WSAGetLastError());
+        std::cout << "Socket failed with error: " << WSAGetLastError() << std::endl;
         WSACleanup();
         return 1;
     }
@@ -39,7 +39,7 @@ SOCKET ClientSocketStart(int port)
     int connResult = connect(Socket, (sockaddr *)&saServer, sizeof(saServer));
     if (connResult == SOCKET_ERROR)
     {
-        wprintf(L"Server connect failed with error: %d\n", WSAGetLastError());
+        std::cout << "Server connect failed with error: " << WSAGetLastError() << std::endl;
         closesocket(Socket);
         WSACleanup();
         exit(0);
@@ -89,12 +89,12 @@ int main()
             tokens = Tokenizer(input.c_str(), ' ');
             if (tokens.at(0) == "put" && tokens.size() < 2)
             {
-                std::cout << "INVALID COMMAND: put <filename>" << std::endl;
+                std::cout << "Invalid command: put <filename>" << std::endl;
                 continue;
             }
             else if (tokens.at(0) == "get" && tokens.size() < 2)
             {
-                std::cout << "INVALID COMMAND: get <filename>" << std::endl;
+                std::cout << "Invalid command get <filename>" << std::endl;
                 continue;
             }
 
@@ -137,7 +137,7 @@ int main()
     iResult = shutdown(ControlSocket, SD_SEND);
     if (iResult == SOCKET_ERROR)
     {
-        wprintf(L"Client shutdown failed with error: %d\n", WSAGetLastError());
+        std::cout << "Socket shutdown failed with error: " << WSAGetLastError() << std::endl;
         closesocket(ControlSocket);
         WSACleanup();
         return 1;
