@@ -92,7 +92,7 @@ int main(int argc, char const *argv[])
     do
     {
         // Ask user for input
-        wprintf(L"> ");
+        wprintf(L"\n> ");
         getline(cin, input); // To retrieve text with spaces
                              // Send input
         // Check user has typed
@@ -116,6 +116,13 @@ int main(int argc, char const *argv[])
                 int sendResult = sendto(Socket, input.c_str(), input.size() + 1, 0, (SOCKADDR*)&saServer, sizeof(saServer));
                 if(sendResult == SOCKET_ERROR) {
                     wprintf(L"Message Not Sent, Error %d", WSAGetLastError());
+                } else {
+                    ZeroMemory(buf, DEFAULT_BUFLEN);
+                    int serverLength = sizeof(saServer);
+                    int bytesReceived = recvfrom(Socket, buf, DEFAULT_BUFLEN, 0, (SOCKADDR*)&saServer, &serverLength);
+                    {
+                        std::cout << "SERVER> " << string(buf, 0, bytesReceived);
+                    }
                 }
             }
         }

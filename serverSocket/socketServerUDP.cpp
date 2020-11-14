@@ -80,6 +80,14 @@ int main()
 
 		// Display received data, including the sender's IP
 		wprintf(L"[%ls] Said > %hs", clientIP, recvbuf);
+		// Echo Back to The Client
+		int iResult = sendto(Socket, recvbuf, DEFAULT_BUFLEN, 0, (SOCKADDR*)&client, sizeof(client));
+		 if (iResult == SOCKET_ERROR) {
+        wprintf(L"sendto failed with error: %d\n", WSAGetLastError());
+        closesocket(Socket);
+        WSACleanup();
+        return 1;
+    }
 	}
 
 	// Close socket
