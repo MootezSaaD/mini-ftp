@@ -16,5 +16,6 @@ char* ReadFile(const char* filename);
 
 enum PARSER_CODES { SHUTDOWN, CONTINUE };
 void SocketHandler(SOCKET Socket, int iResult);
-int SendAll(SOCKET DataClientSocket, const void* data, int data_size);
-int RecvAndWrite(SOCKET DataClientSocket, char* filename);
+int SendAll(SOCKET Socket, const void* data, int data_size);
+int RecvAll(SOCKET Socket, char* data_ptr, int data_size);
+int RecvAndWrite(SOCKET Socket, char* filename, char* data_ptr, int data_size);

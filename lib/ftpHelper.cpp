@@ -45,9 +45,12 @@ std::size_t CountFilesInDir(std::filesystem::path path)
 
 std::string GetFileList() {
 	std::string files;
+	const auto separator = "\n";
+	const auto* sep = "";
 	std::string currentDir(GetCurrentDirectory());
 	for (const auto& entry : fs::directory_iterator(currentDir)) {
-		files.append(entry.path().filename().string() + '\n');
+		files.append(sep + entry.path().filename().string());
+		sep = separator;
 	}
 	return files;
 }
@@ -78,13 +81,13 @@ void SocketHandler(SOCKET Socket, int iResult) {
 	}
 }
 
-int SendAll(SOCKET DataClientSocket, const void* data, int data_size)
+int SendAll(SOCKET Socket, const void* data, int data_size)
 {
 	const char* data_ptr = (const char*)data;
 	int bytes_sent;
 	while (data_size > 0)
 	{
-		bytes_sent = send(DataClientSocket, data_ptr, data_size, 0);
+		bytes_sent = send(Socket, data_ptr, data_size, 0);
 		if (bytes_sent == SOCKET_ERROR)
 			return -1;
 		data_ptr += bytes_sent;
@@ -94,24 +97,34 @@ int SendAll(SOCKET DataClientSocket, const void* data, int data_size)
 	return 1;
 }
 
-int RecvAndWrite(SOCKET DataClientSocket, char* filename)
+int RecvAll(SOCKET Socket, char* data_ptr, int data_size)
 {
-	char buffer[4096];
-	int bytes_read;
+    int bytes_recv;
+	int total_bytes_recv = 0;
+    while (data_size > 0)
+    {
+        bytes_recv = recv(Socket, data_ptr, data_size, 0);
+        if (bytes_recv <= 0)
+            return total_bytes_recv;
+
+        data_ptr += bytes_recv;
+        data_size -= bytes_recv;
+		total_bytes_recv += bytes_recv;
+    }
+    return 1;
+}
+
+int RecvAndWrite(SOCKET Socket, char* filename, char* data_ptr, int data_size)
+{
+	int bytes_recv;
 	std::ofstream file(filename, std::ofstream::out|std::ofstream::binary);
-	do
-	{
-		bytes_read = recv(DataClientSocket, buffer, sizeof(buffer), 0);
-		if (bytes_read > 0) {
-			file.write(buffer, bytes_read);
-			// printf("Buffer: %.*s\n", bytes_read, buffer);
-			//or: printf("Buffer: %*.*s\n", bytes_read, bytes_read, buffer);
-		} else if (bytes_read == SOCKET_ERROR) {
-			file.close();
-			return -1;
-		}
+	bytes_recv = RecvAll(Socket, data_ptr, data_size);
+	if (bytes_recv >= 0) {
+		file.write(data_ptr, bytes_recv);
+	} else {
+		file.close();
+		return -1;
 	}
-	while (bytes_read > 0);
 	file.close();
 	return 1;
 }

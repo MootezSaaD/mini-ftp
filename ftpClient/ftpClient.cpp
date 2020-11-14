@@ -39,7 +39,7 @@ SOCKET SocketStarter(int port) {
         wprintf(L"Server connect failed with error: %d\n", WSAGetLastError());
         closesocket(Socket);
         WSACleanup();
-        return 0;
+        exit(0);
     }
     return Socket;
 }
@@ -64,17 +64,23 @@ int main()
 
     //----------------------
     // Sending and receiving data
-    char buf[DEFAULT_BUFLEN];
+    char buffer[DEFAULT_BUFLEN];
+    int bytesRecv;
+
+    SOCKET DataSocket;
     std::string input;
+    std::vector<std::string> tokens;
     do
     {
-        SOCKET DataSocket;
         // Ask user for input
-        wprintf(L"> ");
+        std::cout << "> ";
         getline(std::cin, input); // To retrieve text with spaces
+        if (std::cin.fail() || std::cin.eof()) {
+            std::cin.clear(); // reset cin state
+        }
         // Check user has typed
         if (input.size() > 0) {
-            std::vector<std::string> tokens = Tokenizer(input.c_str(), ' ');
+            tokens = Tokenizer(input.c_str(), ' ');
             if (tokens.at(0) == "put" && tokens.size() < 2) {
                 std::cout << "INVALID COMMAND: put <filename>" << std::endl;
                 continue;
@@ -83,8 +89,8 @@ int main()
                 continue;
             }
 
-            int sendResult = send(ControlSocket, input.c_str(), input.size() + 1, 0); // + 1 beacuse std::string (char arrays) in C++ end with 0
-            if (sendResult == SOCKET_ERROR || input == "bye" || input == "quit")
+            iResult = send(ControlSocket, input.c_str(), input.size() + 1, 0); // + 1 beacuse std::string (char arrays) in C++ end with 0
+            if (iResult == SOCKET_ERROR || input == "bye" || input == "quit")
                 break;
 
             if (tokens.at(0) == "put" && tokens.size() == 2) {
@@ -93,29 +99,37 @@ int main()
 
                 char* data = ReadFile(filename);
                 int data_size = (int)strlen(data);
-                int iSendResult = SendAll(DataSocket, data, data_size);
-                SocketHandler(DataSocket, iSendResult);
+                iResult = SendAll(DataSocket, data, data_size);
+                SocketHandler(DataSocket, iResult);
             }
-            if(tokens.at(0) == "get" && tokens.size() == 2) {
+            else if(tokens.at(0) == "get" && tokens.size() == 2) {
+                ZeroMemory(buffer, sizeof(buffer));
                 DataSocket = SocketStarter(20);
                 char* filename = StrToChar(tokens.at(1));
-                int iRecvResult = RecvAndWrite(DataSocket, filename);
-                SocketHandler(DataSocket, iRecvResult);
+                iResult = RecvAndWrite(DataSocket, filename, buffer, sizeof(buffer));
+                SocketHandler(DataSocket, iResult);
             }
             else {
-                ZeroMemory(buf, DEFAULT_BUFLEN);
+                ZeroMemory(buffer, sizeof(buffer));
                 DataSocket = SocketStarter(20);
                 // Wait for response
-                int bytesReceived = recv(DataSocket, buf, DEFAULT_BUFLEN, 0);
-                if (bytesReceived > 0)
-                {
-                    std::cout << std::string(buf, 0, bytesReceived);
-                    wprintf(L"\n");
-                }
+                bytesRecv = RecvAll(DataSocket, buffer, sizeof(buffer));
+                std::cout << buffer << std::endl;
+                SocketHandler(DataSocket, iResult);
             }
         }
-    } while (true);
-  
+    } while (iResult > 0);
+
+	//----------------------
+	// Shutdown the connection since we're done
+	iResult = shutdown(ControlSocket, SD_SEND);
+	if (iResult == SOCKET_ERROR) {
+		wprintf(L"Client shutdown failed with error: %d\n", WSAGetLastError());
+		closesocket(ControlSocket);
+		WSACleanup();
+		return 1;
+	}
+
     // Shutdown everything
     closesocket(ControlSocket);
     WSACleanup();
